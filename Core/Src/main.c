@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "tim.h"
 #include "usart.h"
 #include "usb_otg.h"
 #include "gpio.h"
@@ -45,6 +46,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+
+// PWM TESTING // CounterPeriod = 100
+volatile uint16_t pulse_1 = 100;
+volatile uint16_t pulse_2 = 100;
+
 
 /* USER CODE END PV */
 
@@ -89,7 +95,14 @@ int main(void)
   MX_GPIO_Init();
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+
+  // PWM TESTING // CounterPeriod = 100
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_1); // PA6
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, pulse_2); // PC7
 
   /* USER CODE END 2 */
 
