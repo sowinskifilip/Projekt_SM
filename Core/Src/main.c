@@ -26,6 +26,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stdio.h"
+#include "string.h"
+#include <stdlib.h>
+#include "math.h"
 
 /* USER CODE END Includes */
 
@@ -36,6 +40,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define PI = M_PI
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,9 +52,23 @@
 
 /* USER CODE BEGIN PV */
 
-// PWM TESTING // CounterPeriod = 100
-volatile uint16_t pulse_1 = 100;
-volatile uint16_t pulse_2 = 100;
+// PWM CONFIG // CounterPeriod = 100
+volatile uint16_t duty_A = 0;
+volatile uint16_t duty_B = 0;
+
+// UART CONFIG // Przerobic na predkosc // TODO
+volatile char user_val[4]; // [0/1 X X R/L]
+const char error_1[] = "WRONG DIR!\r\n";
+const char error_2[] = "WRONG SPEED!\r\n";
+const char error_3[] = "UART ERROR\r\n";
+volatile int user_duty = 0;
+volatile uint8_t flag = 0;
+
+// ENCODER CONFIG
+uint32_t counter= 0;
+
+// SPEED CALCULATION
+uint32_t speed = 0;
 
 
 /* USER CODE END PV */
@@ -57,6 +76,7 @@ volatile uint16_t pulse_2 = 100;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+
 
 /* USER CODE END PFP */
 
@@ -96,13 +116,25 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_TIM3_Init();
+  MX_TIM1_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
-  // PWM TESTING // CounterPeriod = 100
+  // PWM CONFIG // CounterPeriod = 100
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
-  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_1); // PA6
-  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, pulse_2); // PC7
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
+
+  // UART CONFIG
+  HAL_UART_Receive_IT(&huart3, &user_val, 4);
+
+  // ENCODER CONFIG
+  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
+
+  // MAIN TIMER CONFIG
+  HAL_TIM_Base_Start_IT(&htim6);
+
 
   /* USER CODE END 2 */
 
@@ -179,6 +211,55 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+// UART CONFIG // Przerobic na predkosc // TODO
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart == &huart3){
+		user_duty = atoi(user_val);
+		if(user_duty >= 25 && user_duty <= 100){
+			flag = 1;
+		}
+		else{
+			flag = 0;
+			HAL_UART_Transmit(&huart3, &error_2, strlen(error_2), 100);
+		}
+
+		if(user_val[3] == 'R' && flag == 1){
+			duty_A = (uint16_t)user_duty;
+			duty_B = 0;
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
+		}
+		else if(user_val[3] == 'L' && flag == 1){
+			duty_B = (uint16_t)user_duty;
+			duty_A = 0;
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
+		}
+		else{
+			HAL_UART_Transmit(&huart3, &error_1, strlen(error_1), 100);
+		}
+	}
+
+	else{
+		HAL_UART_Transmit(&huart3, &error_3, strlen(error_3), 100);
+	}
+
+	HAL_UART_Receive_IT(&huart3, &user_val, 4);
+}
+
+// MAIN TIMER CONFIG
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if(htim -> Instance == TIM6)
+	{
+		// ENCODER TEST
+		counter = (uint16_t)__HAL_TIM_GET_COUNTER(&htim1);
+	}
+}
+
+
 
 /* USER CODE END 4 */
 
