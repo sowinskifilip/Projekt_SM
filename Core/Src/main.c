@@ -40,7 +40,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define PI = M_PI
+
+// SPEED CALCULATION
+#define ENCODER_RESOLUTION 224.4
+#define TIMER_CONF_BOTH_EDGE_T1T2 4
+#define	TIMER_FREQENCY 10
+#define	MINUTE_IN_SECOND 60
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,9 +72,10 @@ volatile uint8_t flag = 0;
 
 // ENCODER CONFIG
 uint32_t counter= 0;
+int16_t count = 0;
 
 // SPEED CALCULATION
-uint32_t speed = 0;
+int16_t speed = 0;
 
 
 /* USER CODE END PV */
@@ -76,6 +83,10 @@ uint32_t speed = 0;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+void SpeedCalculation(int16_t count){
+	speed = (int16_t)((count * TIMER_FREQENCY * MINUTE_IN_SECOND)/
+			(ENCODER_RESOLUTION*TIMER_CONF_BOTH_EDGE_T1T2));
+}
 
 
 /* USER CODE END PFP */
@@ -254,8 +265,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if(htim -> Instance == TIM6)
 	{
-		// ENCODER TEST
-		counter = (uint16_t)__HAL_TIM_GET_COUNTER(&htim1);
+		// SPEED CALCULATION
+		counter = __HAL_TIM_GET_COUNTER(&htim1);
+		count = (int16_t)counter;
+		__HAL_TIM_SET_COUNTER(&htim1, 0);
+		SpeedCalculation(count);
+
 	}
 }
 
