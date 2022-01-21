@@ -30,6 +30,7 @@
 #include "string.h"
 #include <stdlib.h>
 #include "math.h"
+#include "arm_math.h"
 
 /* USER CODE END Includes */
 
@@ -47,6 +48,13 @@
 #define	TIMER_FREQENCY 10
 #define	MINUTE_IN_SECOND 60
 
+
+// PID CONTROLER CONFIG
+#define PID_KP 0.2
+#define PID_KI 0.3
+#define PID_KD 0
+
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -62,13 +70,14 @@
 volatile uint16_t duty_A = 0;
 volatile uint16_t duty_B = 0;
 
-// UART CONFIG // Przerobic na predkosc // TODO
-volatile char user_val[4]; // [0/1 X X R/L]
+// UART CONFIG
+volatile char user_val[4]; // [X X X R/L]
 const char error_1[] = "WRONG DIR!\r\n";
 const char error_2[] = "WRONG SPEED!\r\n";
 const char error_3[] = "UART ERROR\r\n";
-volatile int user_duty = 0;
+volatile uint16_t user_speed = 0;
 volatile uint8_t flag = 0;
+volatile uint8_t dir = 0;
 
 // ENCODER CONFIG
 uint32_t counter= 0;
@@ -76,6 +85,13 @@ int16_t count = 0;
 
 // SPEED CALCULATION
 int16_t speed = 0;
+int16_t reference_speed = 0;
+
+// PID CONTROLER CONFIG
+arm_pid_instance_f32 PID; // controller instance
+float32_t PID_Output = 0;
+int16_t PID_Duty = 0;
+int16_t PID_Error = 0;
 
 
 /* USER CODE END PV */
@@ -88,11 +104,42 @@ void SpeedCalculation(int16_t count){
 			(ENCODER_RESOLUTION*TIMER_CONF_BOTH_EDGE_T1T2));
 }
 
+void SetDutyPID(arm_pid_instance_f32* pid, int16_t y_ref, int16_t y){
+
+	PID_Error = y_ref - y; //Error calc
+	PID_Output = arm_pid_f32(pid, (float32_t)PID_Error); // Output PID signal
+	PID_Duty = (int16_t)PID_Output;
+
+	// ANTI-WINDUP
+//	if (PID_Duty > 1000){
+//		PID_Duty = 1000;
+//	}
+//	else if (PID_Duty < 0){
+//		PID_Duty = 0;
+//	}
+
+	if(PID_Duty > 0){
+		duty_A = abs(PID_Duty);
+		duty_B = 0;
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
+	}
+	else{
+		duty_A = 0;
+		duty_B = abs(PID_Duty);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
+	}
+
+
+}
+
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
 
 /* USER CODE END 0 */
 
@@ -102,6 +149,13 @@ void SpeedCalculation(int16_t count){
   */
 int main(void)
 {
+	// PID CONTROLER CONFIG
+	PID.Kp = PID_KP;
+	PID.Ki = PID_KI;
+	PID.Kd = PID_KD;
+
+	arm_pid_init_f32(&PID, 1); // controller initialization
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -227,29 +281,27 @@ void SystemClock_Config(void)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart3){
-		user_duty = atoi(user_val);
-		if(user_duty >= 25 && user_duty <= 100){
+		user_speed = atoi(user_val);
+		if(user_speed >= 35 && user_speed <= 270){
 			flag = 1;
+
+			if(user_val[3] == 'R' && flag == 1){
+				dir = 1;
+				reference_speed = user_speed;
+			}
+			else if(user_val[3] == 'L' && flag == 1){
+				dir = 2;
+				reference_speed = -(user_speed);
+			}
+			else{
+				flag = 0;
+				HAL_UART_Transmit(&huart3, &error_1, strlen(error_1), 100);
+			}
 		}
+
 		else{
 			flag = 0;
 			HAL_UART_Transmit(&huart3, &error_2, strlen(error_2), 100);
-		}
-
-		if(user_val[3] == 'R' && flag == 1){
-			duty_A = (uint16_t)user_duty;
-			duty_B = 0;
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
-		}
-		else if(user_val[3] == 'L' && flag == 1){
-			duty_B = (uint16_t)user_duty;
-			duty_A = 0;
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
-		}
-		else{
-			HAL_UART_Transmit(&huart3, &error_1, strlen(error_1), 100);
 		}
 	}
 
@@ -271,6 +323,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		__HAL_TIM_SET_COUNTER(&htim1, 0);
 		SpeedCalculation(count);
 
+		// SPEED REGULATION
+		SetDutyPID(&PID, reference_speed, speed);
 	}
 }
 
