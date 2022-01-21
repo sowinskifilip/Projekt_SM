@@ -51,8 +51,8 @@
 
 // PID CONTROLER CONFIG
 #define PID_KP 0.2
-#define PID_KI 0.3
-#define PID_KD 0
+#define PID_KI 0.6
+#define PID_KD 0.0
 
 
 /* USER CODE END PD */
@@ -109,21 +109,23 @@ void SetDutyPID(arm_pid_instance_f32* pid, float32_t y_ref, float32_t y){
 	PID_Error = y_ref - y; //Error calc
 	PID_Output = arm_pid_f32(pid, PID_Error); // Output PID signal
 
-	// ANTI-WINDUP
-//	if (PID_Duty > 1000){
-//		PID_Duty = 1000;
-//	}
-//	else if (PID_Duty < 0){
-//		PID_Duty = 0;
-//	}
-
 	if(PID_Output > 0){
+		// SATURATION
+		if (PID_Output > 1000){
+			PID_Output = 1000;
+		}
+
 		duty_A = (uint16_t)(abs(PID_Output));
 		duty_B = 0;
 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
 	}
 	else{
+		// SATURATION
+		if (PID_Output < -1000){
+			PID_Output = -1000;
+		}
+
 		duty_A = 0;
 		duty_B = (uint16_t)(abs(PID_Output));;
 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
@@ -278,7 +280,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart3){
 		user_speed = (float32_t)(atof(user_val));
-		if(user_speed >= 35 && user_speed <= 270){
+		if(user_speed >= 30 && user_speed <= 270){
 			flag = 1;
 
 			if(user_val[3] == 'R' && flag == 1){
