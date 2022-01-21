@@ -75,7 +75,8 @@ volatile char user_val[4]; // [X X X R/L]
 const char error_1[] = "WRONG DIR!\r\n";
 const char error_2[] = "WRONG SPEED!\r\n";
 const char error_3[] = "UART ERROR\r\n";
-volatile uint16_t user_speed = 0;
+
+volatile float32_t user_speed = 0;
 volatile uint8_t flag = 0;
 volatile uint8_t dir = 0;
 
@@ -84,14 +85,13 @@ uint32_t counter= 0;
 int16_t count = 0;
 
 // SPEED CALCULATION
-int16_t speed = 0;
-int16_t reference_speed = 0;
+float32_t speed = 0;
+float32_t reference_speed = 0;
 
 // PID CONTROLER CONFIG
 arm_pid_instance_f32 PID; // controller instance
 float32_t PID_Output = 0;
-int16_t PID_Duty = 0;
-int16_t PID_Error = 0;
+float32_t PID_Error = 0;
 
 
 /* USER CODE END PV */
@@ -100,15 +100,14 @@ int16_t PID_Error = 0;
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void SpeedCalculation(int16_t count){
-	speed = (int16_t)((count * TIMER_FREQENCY * MINUTE_IN_SECOND)/
+	speed = (float)((count * TIMER_FREQENCY * MINUTE_IN_SECOND)/
 			(ENCODER_RESOLUTION*TIMER_CONF_BOTH_EDGE_T1T2));
 }
 
-void SetDutyPID(arm_pid_instance_f32* pid, int16_t y_ref, int16_t y){
+void SetDutyPID(arm_pid_instance_f32* pid, float32_t y_ref, float32_t y){
 
 	PID_Error = y_ref - y; //Error calc
-	PID_Output = arm_pid_f32(pid, (float32_t)PID_Error); // Output PID signal
-	PID_Duty = (int16_t)PID_Output;
+	PID_Output = arm_pid_f32(pid, PID_Error); // Output PID signal
 
 	// ANTI-WINDUP
 //	if (PID_Duty > 1000){
@@ -118,15 +117,15 @@ void SetDutyPID(arm_pid_instance_f32* pid, int16_t y_ref, int16_t y){
 //		PID_Duty = 0;
 //	}
 
-	if(PID_Duty > 0){
-		duty_A = abs(PID_Duty);
+	if(PID_Output > 0){
+		duty_A = (uint16_t)(abs(PID_Output));
 		duty_B = 0;
 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
 	}
 	else{
 		duty_A = 0;
-		duty_B = abs(PID_Duty);
+		duty_B = (uint16_t)(abs(PID_Output));;
 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty_A); // PA6
 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty_B); // PC7
 	}
@@ -149,15 +148,12 @@ void SetDutyPID(arm_pid_instance_f32* pid, int16_t y_ref, int16_t y){
   */
 int main(void)
 {
-	// PID CONTROLER CONFIG
+  /* USER CODE BEGIN 1 */
 	PID.Kp = PID_KP;
 	PID.Ki = PID_KI;
 	PID.Kd = PID_KD;
 
-	arm_pid_init_f32(&PID, 1); // controller initialization
-
-  /* USER CODE BEGIN 1 */
-
+	arm_pid_init_f32(&PID, 1);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -281,7 +277,7 @@ void SystemClock_Config(void)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart3){
-		user_speed = atoi(user_val);
+		user_speed = (float32_t)(atof(user_val));
 		if(user_speed >= 35 && user_speed <= 270){
 			flag = 1;
 
