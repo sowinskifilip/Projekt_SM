@@ -1,8 +1,9 @@
-tim.c:32:6:MX_TIM1_Init	56	static
-tim.c:78:6:MX_TIM3_Init	64	static
-tim.c:136:6:MX_TIM6_Init	24	static
-tim.c:169:6:HAL_TIM_Encoder_MspInit	48	static
-tim.c:199:6:HAL_TIM_Base_MspInit	24	static
-tim.c:233:6:HAL_TIM_MspPostInit	48	static
-tim.c:270:6:HAL_TIM_Encoder_MspDeInit	16	static
-tim.c:293:6:HAL_TIM_Base_MspDeInit	16	static
+tim.c:33:6:MX_TIM1_Init	56	static
+tim.c:79:6:MX_TIM3_Init	64	static
+tim.c:137:6:MX_TIM6_Init	24	static
+tim.c:170:6:MX_TIM7_Init	24	static
+tim.c:203:6:HAL_TIM_Encoder_MspInit	48	static
+tim.c:236:6:HAL_TIM_Base_MspInit	32	static
+tim.c:285:6:HAL_TIM_MspPostInit	48	static
+tim.c:322:6:HAL_TIM_Encoder_MspDeInit	16	static
+tim.c:347:6:HAL_TIM_Base_MspDeInit	16	static
