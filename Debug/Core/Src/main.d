@@ -37,7 +37,11 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Core/Inc/adc.h ../Core/Inc/main.h ../Core/Inc/tim.h \
  ../Core/Inc/usart.h ../Core/Inc/usb_otg.h ../Core/Inc/gpio.h \
  ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Include/arm_math.h \
- ../Drivers/CMSIS/Include/cmsis_compiler.h
+ ../Drivers/CMSIS/Include/cmsis_compiler.h \
+ ../Core/Src/../../MATLAB/fir_b.csv \
+ ../Core/Src/../../MATLAB/fir_state_init.csv \
+ ../Core/Src/../../MATLAB/fir_b_1.csv \
+ ../Core/Src/../../MATLAB/fir_state_init_1.csv
 
 ../Core/Inc/main.h:
 
@@ -126,3 +130,11 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Include/arm_math.h:
 
 ../Drivers/CMSIS/Include/cmsis_compiler.h:
+
+../Core/Src/../../MATLAB/fir_b.csv:
+
+../Core/Src/../../MATLAB/fir_state_init.csv:
+
+../Core/Src/../../MATLAB/fir_b_1.csv:
+
+../Core/Src/../../MATLAB/fir_state_init_1.csv:

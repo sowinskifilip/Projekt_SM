@@ -29,7 +29,7 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include "string.h"
-#include <stdlib.h>
+#include "stdlib.h"
 #include "math.h"
 #include "arm_math.h"
 
@@ -55,6 +55,9 @@
 #define PID_KI 0.1
 #define PID_KD 0.2
 
+// FIR CONFIG
+#define FIR1_NumTaps 58
+#define FIR2_NumTaps 6
 
 /* USER CODE END PD */
 
@@ -67,20 +70,22 @@
 
 /* USER CODE BEGIN PV */
 
-// PWM CONFIG // CounterPeriod = 100
+// PWM CONFIG // CounterPeriod = 1000
 volatile uint16_t duty_A = 0;
 volatile uint16_t duty_B = 0;
 
 // UART CONFIG
-uint8_t user_val[4]; // [X X X R/L]
+char user_val[4]; // [X X X R/L]
 const char error_1[] = "WRONG DIR!\r\n";
 const char error_2[] = "WRONG SPEED!\r\n";
 const char error_3[] = "UART ERROR\r\n";
-const char error_4[] = "WRONG STATE! WRITE U OR P!\r\n";
+
+const char uart_state[] = "UART";
+const char adc_state[] = "ADC1";
 
 volatile float32_t user_speed = 0;
 volatile uint8_t flag = 0;
-volatile uint8_t state = 0; // default: 0 - UART, another: 1 - ADC
+volatile uint8_t state = 0; // default: 0 - UART, 1 - ADC
 
 uint16_t data_msg[64];
 int length;
@@ -88,27 +93,47 @@ int length;
 // ADC CONFIG
 const uint32_t ADC_REG_MAX = 0xfff; //12-bits
 const float32_t ADC_VOLTAGE_MAX = 3.3; //[V]
-
-//ADC wyniki konwersji
-volatile uint32_t ADC_measurement = 0; //wartość rejestru
-volatile float32_t ADC_voltage = 0; //wartośc napięcia w Voltach
-
+volatile uint32_t ADC_measurement = 0;
+volatile float32_t ADC_voltage = 0;
+volatile float32_t Filtered_voltage = 0;
 
 // ENCODER CONFIG
 uint32_t counter= 0;
 int16_t count = 0;
 
 // SPEED CALCULATION
-const float32_t max_speed = 270;
+const float32_t max_speed = 260;
 const float32_t min_speed = 30;
 
 float32_t speed = 0;
 float32_t reference_speed = 0;
+float32_t speed_filtered = 0;
 
 // PID CONTROLER CONFIG
 arm_pid_instance_f32 PID; // controller instance
 float32_t PID_Output = 0;
 float32_t PID_Error = 0;
+
+// FIR CONFIG
+arm_fir_instance_f32 ADC_Fir;
+arm_fir_instance_f32 Speed_Fir;
+
+float32_t fir_b_1[FIR1_NumTaps]={
+		#include "../../MATLAB/fir_b.csv"
+};
+
+float32_t fir_x_1[FIR1_NumTaps]={
+		#include "../../MATLAB/fir_state_init.csv"
+};
+
+float32_t fir_b_2[FIR2_NumTaps]={
+		#include "../../MATLAB/fir_b_1.csv"
+};
+
+float32_t fir_x_2[FIR2_NumTaps]={
+		#include "../../MATLAB/fir_state_init_1.csv"
+};
+
 
 
 /* USER CODE END PV */
@@ -119,6 +144,8 @@ void SystemClock_Config(void);
 void SpeedCalculation(int16_t count){
 	speed = (float32_t)((count * TIMER_FREQENCY * MINUTE_IN_SECOND)/
 			(ENCODER_RESOLUTION*TIMER_CONF_BOTH_EDGE_T1T2));
+
+	arm_fir_f32(&Speed_Fir, &speed, &speed_filtered, 1);
 }
 
 void SetDutyPID(arm_pid_instance_f32* pid, float32_t y_ref, float32_t y){
@@ -175,6 +202,11 @@ int main(void)
 	PID.Kd = PID_KD;
 
 	arm_pid_init_f32(&PID, 1);
+
+	// FIR INIT
+	arm_fir_init_f32(&ADC_Fir, FIR1_NumTaps, fir_b_1, fir_x_1, 1);
+	arm_fir_init_f32(&Speed_Fir, FIR2_NumTaps, fir_b_2, fir_x_2, 1);
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -202,6 +234,7 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM7_Init();
   MX_ADC1_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
   // PWM CONFIG // CounterPeriod = 1000
@@ -221,6 +254,7 @@ int main(void)
 
   // DATA TRANSMIT TIMER CONFIG
   HAL_TIM_Base_Start_IT(&htim7);
+  HAL_TIM_Base_Start_IT(&htim4);
 
 
   /* USER CODE END 2 */
@@ -303,30 +337,41 @@ void SystemClock_Config(void)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart3){
-		// USER SPEED READ
-		if(state == 0){
-		user_speed = (float32_t)(atof(user_val));
 
-		if(user_speed >= min_speed && user_speed <= max_speed){
-			flag = 1;
-			if(user_val[3] == 'R' && flag == 1){
-				reference_speed = user_speed;
-			}
-			else if(user_val[3] == 'L' && flag == 1){
-				reference_speed = -(user_speed);
+		// STATE READ
+		if(strncmp(user_val, uart_state, 4) == 0){
+			state = 0;
+		}
+
+		else if(strncmp(user_val, adc_state, 4) == 0){
+			state = 1;
+		}
+
+		else{
+			// USER SPEED READ
+			if(state == 0){
+				user_speed = (float32_t)(atof(user_val));
+				if(user_speed >= min_speed && user_speed <= max_speed){
+					flag = 1;
+					if(user_val[3] == 'R' && flag == 1){
+						reference_speed = user_speed;
+					}
+					else if(user_val[3] == 'L' && flag == 1){
+						reference_speed = -(user_speed);
+					}
+					else{
+						flag = 0;
+						HAL_UART_Transmit(&huart3, error_1, strlen(error_1), 100);
+					}
+				}
+				else{
+					flag = 0;
+					HAL_UART_Transmit(&huart3, error_2, strlen(error_2), 100);
+				}
 			}
 			else{
-				flag = 0;
-				HAL_UART_Transmit(&huart3, error_1, strlen(error_1), 100);
+				HAL_UART_Transmit(&huart3, error_3, strlen(error_3), 100);
 			}
-		}
-		else{
-			flag = 0;
-			HAL_UART_Transmit(&huart3, error_2, strlen(error_2), 100);
-		}
-		}
-		else{
-			HAL_UART_Transmit(&huart3, error_3, strlen(error_3), 100);
 		}
 	}
 
@@ -339,6 +384,10 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	if(hadc == &hadc1){
 		ADC_measurement = HAL_ADC_GetValue(&hadc1);
 		ADC_voltage = ((float32_t)ADC_measurement / (float32_t)ADC_REG_MAX) * ADC_VOLTAGE_MAX;
+
+		// FILTRATION
+		arm_fir_f32(&ADC_Fir, &ADC_voltage, &Filtered_voltage, 1);
+
 
 		if(state == 1){
 			reference_speed = (uint16_t)((ADC_voltage * max_speed)/ADC_VOLTAGE_MAX);
@@ -369,15 +418,21 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		SpeedCalculation(count);
 
 		// SPEED REGULATION
-		SetDutyPID(&PID, reference_speed, speed);
+		SetDutyPID(&PID, reference_speed, speed_filtered);
 	}
 
 	// DATA TRANSMIT TIMER CONFIG
-	if(htim -> Instance == TIM7)
+	if(htim -> Instance == TIM7 && state == 0)
 	{
-		length = sprintf(data_msg, " POM: %3.3f  , REF: %3.3f  , STER: %3.3f \r\n", (float)speed,  (float)reference_speed, (float)PID_Output);
+		length = sprintf(data_msg, " POM: %3.3f  , REF: %3.3f  , STER: %3.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
 		HAL_UART_Transmit(&huart3, data_msg, length, 0xffff);
 	}
+
+	if(htim -> Instance == TIM4 && state == 1)
+		{
+			length = sprintf(data_msg, " POM: %3.3f  , REF: %3.3f  , STER: %3.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
+			HAL_UART_Transmit(&huart3, data_msg, length, 0xffff);
+		}
 }
 
 
