@@ -424,13 +424,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	// DATA TRANSMIT TIMER CONFIG
 	if(htim -> Instance == TIM7 && state == 0)
 	{
-		length = sprintf(data_msg, " POM: %3.3f  , REF: %3.3f  , STER: %3.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
+		length = sprintf(data_msg, " POM: %.3f  , REF: %.3f  , STER: %.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
 		HAL_UART_Transmit(&huart3, data_msg, length, 0xffff);
 	}
 
 	if(htim -> Instance == TIM4 && state == 1)
 		{
-			length = sprintf(data_msg, " POM: %3.3f  , REF: %3.3f  , STER: %3.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
+			length = sprintf(data_msg, " POM: %.3f  , REF: %.3f  , STER: %.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
 			HAL_UART_Transmit(&huart3, data_msg, length, 0xffff);
 		}
 }

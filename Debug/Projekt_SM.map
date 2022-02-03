@@ -6083,8 +6083,9 @@ LOAD c:/program files/st/stm32cubeide_1.7.0/stm32cubeide/plugins/com.st.stm32cub
 .rodata         0x000000000800bee8      0x534
                 0x000000000800bee8                . = ALIGN (0x4)
  *(.rodata)
- .rodata        0x000000000800bee8       0x2c ./Core/Src/main.o
+ .rodata        0x000000000800bee8       0x29 ./Core/Src/main.o
  *(.rodata*)
+ *fill*         0x000000000800bf11        0x3 
  .rodata.error_1
                 0x000000000800bf14        0xd ./Core/Src/main.o
                 0x000000000800bf14                error_1

@@ -2186,7 +2186,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  8001396:	2b00      	cmp	r3, #0
  8001398:	d124      	bne.n	80013e4 <HAL_TIM_PeriodElapsedCallback+0xb8>
 	{
-		length = sprintf(data_msg, " POM: %3.3f  , REF: %3.3f  , STER: %3.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
+		length = sprintf(data_msg, " POM: %.3f  , REF: %.3f  , STER: %.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
  800139a:	4b32      	ldr	r3, [pc, #200]	; (8001464 <HAL_TIM_PeriodElapsedCallback+0x138>)
  800139c:	edd3 7a00 	vldr	s15, [r3]
  80013a0:	eeb7 5ae7 	vcvt.f64.f32	d5, s15
@@ -2227,7 +2227,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  80013f4:	2b01      	cmp	r3, #1
  80013f6:	d124      	bne.n	8001442 <HAL_TIM_PeriodElapsedCallback+0x116>
 		{
-			length = sprintf(data_msg, " POM: %3.3f  , REF: %3.3f  , STER: %3.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
+			length = sprintf(data_msg, " POM: %.3f  , REF: %.3f  , STER: %.3f \r\n", (float)speed_filtered,  (float)reference_speed, (float)PID_Output);
  80013f8:	4b1a      	ldr	r3, [pc, #104]	; (8001464 <HAL_TIM_PeriodElapsedCallback+0x138>)
  80013fa:	edd3 7a00 	vldr	s15, [r3]
  80013fe:	eeb7 5ae7 	vcvt.f64.f32	d5, s15
